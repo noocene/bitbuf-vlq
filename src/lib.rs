@@ -1,4 +1,4 @@
-#![no_std]
+//#![no_std]
 //! Provides a prefix-based variable length quantity format
 //! that can contain any u64, occupying between 1 and 9 bytes
 //! and wasting one bit per byte in serialized form.
@@ -6,7 +6,7 @@
 //! let mut data = [0u8; 8];
 //!
 //! // Very large number (requires 48 bits)
-//! let val: u64 = 25500050050;
+//! let val: u64 = 1389766487781;
 //!
 //! // Create a buffer handle to write into the array
 //! let mut buf = BitBufMut::new(&mut data);
@@ -27,7 +27,7 @@
 //! assert_eq!(Vlq::read(&mut buf).unwrap(), val);
 //!
 //! // Use a smaller value
-//! let val: u64 = 20;
+//! let val: u64 = 78;
 //!
 //! // Create a new buffer handle to write into the array
 //! let mut buf = BitBufMut::new(&mut data);
@@ -39,7 +39,7 @@
 //! buf.put_aligned(&*vlq).unwrap();
 //!
 //! // Note the shorter length of the written data
-//! assert_eq!(buf.len(), 16);
+//! assert_eq!(buf.len(), 8);
 //!
 //! // Create a buffer to read the data back out
 //! let mut buf = BitBuf::new(&mut data);
@@ -83,15 +83,15 @@ macro_rules! offset {
 
 fn encode_len(n: u64) -> u8 {
     match n {
-        n if n < offset!(2) as u64 => 1,
-        n if n < offset!(3) as u64 => 2,
-        n if n < offset!(4) as u64 => 3,
-        n if n < offset!(5) => 4,
-        n if n < offset!(6) => 5,
-        n if n < offset!(7) => 6,
-        n if n < offset!(8) => 7,
-        n if n < offset!(9) => 8,
-        _ => 9,
+        n if n < offset!(2) as u64 => 0,
+        n if n < offset!(3) as u64 => 1,
+        n if n < offset!(4) as u64 => 2,
+        n if n < offset!(5) => 3,
+        n if n < offset!(6) => 4,
+        n if n < offset!(7) => 5,
+        n if n < offset!(8) => 6,
+        n if n < offset!(9) => 7,
+        _ => 8,
     }
 }
 
@@ -133,7 +133,11 @@ impl<T: Into<u64>> From<T> for Vlq {
             8 => 64,
             _ => panic!("determined invalid length"),
         };
-        buf.put(&input.to_le_bytes(), len).unwrap();
+        let mut bytes = input.to_le_bytes();
+        for byte in &mut bytes {
+            *byte = byte.reverse_bits();
+        }
+        buf.put(&bytes, len).unwrap();
         Vlq(encoded)
     }
 }
@@ -176,6 +180,9 @@ impl Vlq {
         };
         let mut data = [0u8; 8];
         buf.copy_to_slice(&mut data, len)?;
+        for byte in &mut data {
+            *byte = byte.reverse_bits();
+        }
         Ok(u64::from_le_bytes(data))
     }
 }
