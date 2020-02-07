@@ -18,7 +18,7 @@
 //! let vlq: Vlq = Vlq::from(val);
 //!
 //! // Write the vlq data to the buffer
-//! buf.put_aligned(&*vlq).unwrap();
+//! buf.write_aligned(&*vlq).unwrap();
 //!
 //! // Note the length of the written data
 //! assert_eq!(buf.len(), 48);
@@ -39,7 +39,7 @@
 //! let vlq: Vlq = Vlq::from(val);
 //!
 //! // Write the vlq data to the buffer
-//! buf.put_aligned(&*vlq).unwrap();
+//! buf.write_aligned(&*vlq).unwrap();
 //!
 //! // Note the shorter length of the written data
 //! assert_eq!(buf.len(), 8);
@@ -51,7 +51,7 @@
 //! assert_eq!(Vlq::read(&mut buf).unwrap(), val);
 //! ```
 
-use bitbuf::{BitBuf, BitBufMut, BitSliceMut, CopyError};
+use bitbuf::{BitBuf, BitBufMut, BitSliceMut, UnalignedError};
 use core::ops::Deref;
 
 fn encode_len(n: u64) -> u8 {
@@ -99,10 +99,10 @@ impl<T: Into<u64>> From<T> for Vlq {
         let mut buf = BitSliceMut::new(&mut encoded);
         let len = encode_len(input);
         for _ in 0..len {
-            buf.push(false).unwrap();
+            buf.write_bool(false).unwrap();
         }
         if len != 8 {
-            buf.push(true).unwrap();
+            buf.write_bool(true).unwrap();
         }
         let len = match len {
             0 => 7,
@@ -120,7 +120,7 @@ impl<T: Into<u64>> From<T> for Vlq {
         for byte in &mut bytes {
             *byte = byte.reverse_bits();
         }
-        buf.put(&bytes, len).unwrap();
+        buf.write(&bytes, len).unwrap();
         Vlq(encoded)
     }
 }
@@ -128,11 +128,11 @@ impl<T: Into<u64>> From<T> for Vlq {
 #[derive(Debug)]
 pub enum Error {
     TooLong,
-    Buf(CopyError),
+    Buf(UnalignedError),
 }
 
-impl From<CopyError> for Error {
-    fn from(input: CopyError) -> Self {
+impl From<UnalignedError> for Error {
+    fn from(input: UnalignedError) -> Self {
         Error::Buf(input)
     }
 }
@@ -140,7 +140,7 @@ impl From<CopyError> for Error {
 impl Vlq {
     pub fn read<B: BitBuf>(buf: &mut B) -> Result<u64, Error> {
         let mut len = 0usize;
-        while let Some(item) = buf.pop() {
+        while let Some(item) = buf.read_bool() {
             if item {
                 break;
             } else {
@@ -163,7 +163,7 @@ impl Vlq {
             _ => panic!("invalid length in Vlq read"),
         };
         let mut data = [0u8; 8];
-        buf.copy_to_slice(&mut data, len)?;
+        buf.read(&mut data, len)?;
         for byte in &mut data {
             *byte = byte.reverse_bits();
         }
@@ -187,7 +187,7 @@ mod test {
         let vlq = Vlq::from(value);
 
         // Write vlq to buffer
-        buf.put_aligned(&*vlq)
+        buf.write_aligned(&*vlq)
             .expect("writing vlq to buffer failed");
 
         // Ensure the correct byte length was written
