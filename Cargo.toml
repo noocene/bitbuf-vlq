@@ -1,0 +1,8 @@
+[package]
+name = "bitbuf-vlq"
+version = "0.1.0"
+authors = ["Izzy Swart <zenerboson@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+bitbuf = { git = "https://github.com/noocene/bitbuf" }
