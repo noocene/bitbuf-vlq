@@ -17,6 +17,8 @@ jobs:
         rustup update
     - name: Build
       run: cargo build
+    - name: Test
+      run: cargo test
     - name: Build documentation
       run: |
         cargo rustdoc
