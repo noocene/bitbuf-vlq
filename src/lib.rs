@@ -198,7 +198,7 @@ impl Vlq {
             _ => panic!("invalid length in Vlq read"),
         };
         let mut data = [0u8; 8];
-        buf.read(&mut data, len).map_err(|e| match e {
+        buf.read_all(&mut data, len).map_err(|e| match e {
             UnalignedError::Insufficient(_) => Insufficient,
             _ => panic!("overflow in Vlq read buffer"),
         })?;
