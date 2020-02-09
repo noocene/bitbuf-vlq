@@ -51,7 +51,7 @@
 //! assert_eq!(Vlq::read(&mut buf).unwrap(), val);
 //! ```
 
-use bitbuf::{BitBuf, BitBufMut, BitSlice, BitSliceMut, Insufficient, UnalignedError};
+use bitbuf::{BitBuf, BitBufMut, BitSliceMut, Fill, Insufficient, UnalignedError};
 use core::ops::Deref;
 
 fn encode_len(n: u64) -> u8 {
@@ -132,9 +132,8 @@ pub enum AsyncVlqState {
 }
 
 pub struct AsyncReadVlq {
-    buf: [u8; 9],
-    idx: u8,
-    len: u8,
+    len_buf: Fill<[u8; 1]>,
+    full_buf: Fill<[u8; 9]>,
     state: AsyncVlqState,
 }
 
@@ -143,19 +142,15 @@ impl AsyncReadVlq {
         loop {
             match self.state {
                 AsyncVlqState::Len => {
-                    let byte = buf.read_byte().ok_or(Insufficient)?;
-                    self.len = decode_len(byte);
+                    self.len_buf.fill_from(buf)?;
+                    let _ = self.full_buf.fill_from(&mut self.len_buf.as_buf());
                     self.state = AsyncVlqState::Bytes;
-                    self.buf[0] = byte;
                 }
                 AsyncVlqState::Bytes => {
-                    if self.idx < self.len {
-                        self.buf[self.idx as usize] = buf.read_byte().ok_or(Insufficient)?;
-                        self.idx += 1;
-                    } else {
-                        self.state = AsyncVlqState::Complete;
-                        return Ok(Vlq::read(&mut BitSlice::new(&mut self.buf)).unwrap());
-                    }
+                    self.full_buf.fill_from(buf)?;
+                    self.state = AsyncVlqState::Complete;
+                    return Ok(Vlq::read(&mut self.full_buf.as_buf())
+                        .expect("Vlq buf incomplete after fill"));
                 }
                 AsyncVlqState::Complete => panic!("attempted to read Vlq state after completion"),
             }
@@ -166,9 +161,8 @@ impl AsyncReadVlq {
 impl Vlq {
     pub fn async_read() -> AsyncReadVlq {
         AsyncReadVlq {
-            buf: [0u8; 9],
-            idx: 1,
-            len: 0,
+            len_buf: Fill::new([0u8; 1]),
+            full_buf: Fill::new([0u8; 9]),
             state: AsyncVlqState::Len,
         }
     }
