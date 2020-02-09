@@ -51,7 +51,7 @@
 //! assert_eq!(Vlq::read(&mut buf).unwrap(), val);
 //! ```
 
-use bitbuf::{BitBuf, BitBufMut, BitSliceMut, UnalignedError};
+use bitbuf::{BitBuf, BitBufMut, BitSliceMut, Insufficient, UnalignedError};
 use core::ops::Deref;
 
 fn encode_len(n: u64) -> u8 {
@@ -125,20 +125,8 @@ impl<T: Into<u64>> From<T> for Vlq {
     }
 }
 
-#[derive(Debug)]
-pub enum Error {
-    TooLong,
-    Buf(UnalignedError),
-}
-
-impl From<UnalignedError> for Error {
-    fn from(input: UnalignedError) -> Self {
-        Error::Buf(input)
-    }
-}
-
 impl Vlq {
-    pub fn read<B: BitBuf>(buf: &mut B) -> Result<u64, Error> {
+    pub fn read<B: BitBuf>(buf: &mut B) -> Result<u64, Insufficient> {
         let mut len = 0usize;
         while let Some(item) = buf.read_bool() {
             if item {
@@ -163,7 +151,10 @@ impl Vlq {
             _ => panic!("invalid length in Vlq read"),
         };
         let mut data = [0u8; 8];
-        buf.read(&mut data, len)?;
+        buf.read(&mut data, len).map_err(|e| match e {
+            UnalignedError::Insufficient(_) => Insufficient,
+            _ => panic!("overflow in Vlq read buffer"),
+        })?;
         for byte in &mut data {
             *byte = byte.reverse_bits();
         }
