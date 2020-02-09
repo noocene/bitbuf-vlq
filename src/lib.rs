@@ -51,7 +51,7 @@
 //! assert_eq!(Vlq::read(&mut buf).unwrap(), val);
 //! ```
 
-use bitbuf::{BitBuf, BitBufMut, BitSliceMut, Insufficient, UnalignedError};
+use bitbuf::{BitBuf, BitBufMut, BitSlice, BitSliceMut, Insufficient, UnalignedError};
 use core::ops::Deref;
 
 fn encode_len(n: u64) -> u8 {
@@ -125,7 +125,54 @@ impl<T: Into<u64>> From<T> for Vlq {
     }
 }
 
+pub enum AsyncVlqState {
+    Len,
+    Bytes,
+    Complete,
+}
+
+pub struct AsyncReadVlq {
+    buf: [u8; 9],
+    idx: u8,
+    len: u8,
+    state: AsyncVlqState,
+}
+
+impl AsyncReadVlq {
+    pub fn poll_read<B: BitBuf>(&mut self, buf: &mut B) -> Result<u64, Insufficient> {
+        loop {
+            match self.state {
+                AsyncVlqState::Len => {
+                    let byte = buf.read_byte().ok_or(Insufficient)?;
+                    self.len = decode_len(byte);
+                    self.state = AsyncVlqState::Bytes;
+                    self.buf[0] = byte;
+                }
+                AsyncVlqState::Bytes => {
+                    if self.idx < self.len {
+                        self.buf[self.idx as usize] = buf.read_byte().ok_or(Insufficient)?;
+                        self.idx += 1;
+                    } else {
+                        self.state = AsyncVlqState::Complete;
+                        return Ok(Vlq::read(&mut BitSlice::new(&mut self.buf)).unwrap());
+                    }
+                }
+                AsyncVlqState::Complete => panic!("attempted to read Vlq state after completion"),
+            }
+        }
+    }
+}
+
 impl Vlq {
+    pub fn async_read() -> AsyncReadVlq {
+        AsyncReadVlq {
+            buf: [0u8; 9],
+            idx: 1,
+            len: 0,
+            state: AsyncVlqState::Len,
+        }
+    }
+
     pub fn read<B: BitBuf>(buf: &mut B) -> Result<u64, Insufficient> {
         let mut len = 0usize;
         while let Some(item) = buf.read_bool() {
