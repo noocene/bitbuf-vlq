@@ -51,7 +51,7 @@
 //! assert_eq!(Vlq::read(&mut buf).unwrap(), val);
 //! ```
 
-use bitbuf::{BitBuf, BitBufMut, BitSliceMut, Fill, Insufficient, UnalignedError};
+use bitbuf::{BitBuf, BitBufMut, BitSliceMut, CappedFill, Fill, Insufficient, UnalignedError};
 use core::ops::Deref;
 
 fn encode_len(n: u64) -> u8 {
@@ -133,7 +133,7 @@ pub enum AsyncVlqState {
 
 pub struct AsyncReadVlq {
     len_buf: Fill<[u8; 1]>,
-    full_buf: Fill<[u8; 9]>,
+    full_buf: CappedFill<[u8; 9]>,
     state: AsyncVlqState,
 }
 
@@ -143,6 +143,11 @@ impl AsyncReadVlq {
             match self.state {
                 AsyncVlqState::Len => {
                     self.len_buf.fill_from(buf)?;
+                    self.full_buf = CappedFill::new(
+                        [0u8; 9],
+                        decode_len(self.len_buf.as_buf().read_byte().unwrap()) as usize * 8,
+                    )
+                    .unwrap();
                     let _ = self.full_buf.fill_from(&mut self.len_buf.as_buf());
                     self.state = AsyncVlqState::Bytes;
                 }
@@ -162,7 +167,7 @@ impl Vlq {
     pub fn async_read() -> AsyncReadVlq {
         AsyncReadVlq {
             len_buf: Fill::new([0u8; 1]),
-            full_buf: Fill::new([0u8; 9]),
+            full_buf: CappedFill::new([0u8; 9], 0).unwrap(),
             state: AsyncVlqState::Len,
         }
     }
