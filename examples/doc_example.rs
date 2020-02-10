@@ -15,7 +15,7 @@ fn main() {
     let vlq: Vlq = Vlq::from(val);
 
     // Write the vlq data to the buffer
-    buf.write_aligned(&*vlq).unwrap();
+    buf.write_aligned_all(&*vlq).unwrap();
 
     // Note the length of the written data
     assert_eq!(buf.len(), 48);
@@ -36,7 +36,7 @@ fn main() {
     let vlq: Vlq = Vlq::from(val);
 
     // Write the vlq data to the buffer
-    buf.write_aligned(&*vlq).unwrap();
+    buf.write_aligned_all(&*vlq).unwrap();
 
     // Note the shorter length of the written data
     assert_eq!(buf.len(), 8);

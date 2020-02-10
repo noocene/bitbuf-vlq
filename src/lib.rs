@@ -18,7 +18,7 @@
 //! let vlq: Vlq = Vlq::from(val);
 //!
 //! // Write the vlq data to the buffer
-//! buf.write_aligned(&*vlq).unwrap();
+//! buf.write_aligned_all(&*vlq).unwrap();
 //!
 //! // Note the length of the written data
 //! assert_eq!(buf.len(), 48);
@@ -39,7 +39,7 @@
 //! let vlq: Vlq = Vlq::from(val);
 //!
 //! // Write the vlq data to the buffer
-//! buf.write_aligned(&*vlq).unwrap();
+//! buf.write_aligned_all(&*vlq).unwrap();
 //!
 //! // Note the shorter length of the written data
 //! assert_eq!(buf.len(), 8);
@@ -224,7 +224,7 @@ mod test {
         let vlq = Vlq::from(value);
 
         // Write vlq to buffer
-        buf.write_aligned(&*vlq)
+        buf.write_aligned_all(&*vlq)
             .expect("writing vlq to buffer failed");
 
         // Ensure the correct byte length was written
