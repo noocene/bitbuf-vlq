@@ -174,7 +174,7 @@ impl Vlq {
 
     pub fn read<B: BitBuf>(buf: &mut B) -> Result<u64, Insufficient> {
         let mut len = 0usize;
-        while let Some(item) = buf.read_bool() {
+        while let Ok(item) = buf.read_bool() {
             if item {
                 break;
             } else {
