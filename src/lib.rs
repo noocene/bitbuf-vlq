@@ -138,11 +138,11 @@ pub struct AsyncReadVlq {
 }
 
 impl AsyncReadVlq {
-    pub fn poll_read<B: BitBuf>(&mut self, buf: &mut B) -> Result<u64, Insufficient> {
+    pub fn poll_read<B: BitBuf>(&mut self, mut buf: B) -> Result<u64, Insufficient> {
         loop {
             match self.state {
                 AsyncVlqState::Len => {
-                    self.len_buf.fill_from(buf)?;
+                    self.len_buf.fill_from(&mut buf)?;
                     self.full_buf = CappedFill::new(
                         [0u8; 9],
                         decode_len(self.len_buf.as_buf().read_byte().unwrap()) as usize * 8,
@@ -152,7 +152,7 @@ impl AsyncReadVlq {
                     self.state = AsyncVlqState::Bytes;
                 }
                 AsyncVlqState::Bytes => {
-                    self.full_buf.fill_from(buf)?;
+                    self.full_buf.fill_from(&mut buf)?;
                     self.state = AsyncVlqState::Complete;
                     return Ok(Vlq::read(&mut self.full_buf.as_buf())
                         .expect("Vlq buf incomplete after fill"));
@@ -172,7 +172,7 @@ impl Vlq {
         }
     }
 
-    pub fn read<B: BitBuf>(buf: &mut B) -> Result<u64, Insufficient> {
+    pub fn read<B: BitBuf>(mut buf: B) -> Result<u64, Insufficient> {
         let mut len = 0usize;
         while let Ok(item) = buf.read_bool() {
             if item {
