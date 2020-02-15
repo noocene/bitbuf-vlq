@@ -1,4 +1,4 @@
-//#![no_std]
+#![cfg_attr(not(test), no_std)]
 //! Provides a prefix-based variable length quantity format
 //! that can contain any u64, occupying between 1 and 9 bytes
 //! and wasting one bit per byte in serialized form.
